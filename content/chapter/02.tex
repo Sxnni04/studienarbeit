@@ -1,1 +1,75 @@
 \chapter{Theoretische Grundlagen}
+
+\section{Hough Transformation}
+
+Die Hough-Transformation (HT) ist ein grundlegendes Verfahren der digitalen Bildverarbeitung und des maschinellen Sehens, das der Erkennung geometrischer Formen und Muster in Bilddaten dient. Sie wurde ursprünglich von Paul Hough im Jahr 1962 in einem Patent zur Erkennung komplexer Muster in Blasenkammeraufnahmen vorgestellt. \cite{illingworth_survey_1988,hough_method_1962}.
+
+Das Hauptprinzip der Hough Transformation wird in Abbildung \ref{Hough Prinzip} visuell dargestellt. Bild \ref{a} zeigt dabei die Ausgangspunkte im Bildraum. Dabei ist die gestrichelte Linie die gesuchte. 
+
+
+Bild \ref{b} zeigt dieselben Punkte im Parameterraum, wobei sie darin als Linien vorzufinden sind.
+
+\begin{figure}[h]
+\centering
+\begin{subfigure}{0.4\textwidth}
+\centering
+\begin{tikzpicture}
+  \draw[->] (-3,0) -- (3,0) node[right] {$x$};
+  \draw[->] (0,-3) -- (0,3) node[above] {$y$};
+
+  \draw[dashed] (-2,-2) -- (3,3);
+
+  \fill (1,1) circle (2pt) node[right] {$P_1(1, 1)$};
+  \fill (2,2) circle (2pt) node[right] {$P_2(2, 2)$};
+
+  \fill (-2,1) circle (2pt) node[above right] {$P_3(-2, 1)$};
+  
+\end{tikzpicture}
+\caption{Punkte im Bildraum}
+\label{a}
+\end{subfigure}
+\begin{subfigure}{0.4\textwidth}
+\centering
+\begin{tikzpicture}
+
+% Achsen
+\draw[->] (-3,0) -- (3,0) node[right] {$m$};
+\draw[->] (0,-3) -- (0,3) node[above] {$c$};
+
+% Gerade f(x) = -x + 1
+\draw[domain=-2:3] plot (\x, {-\x + 1})
+      node[right] {$f(x)=-x+1$};
+
+% Gerade g(x) = -x + 2
+\draw[domain=-1:3] plot (\x, {-\x + 2})
+      node[right] {$g(x)=-x+2$};
+
+% Gerade h(x) = 2x + 1
+\draw[domain=-2:1] plot (\x, {2*\x + 1})
+      node[right] {$h(x)=2x+1$};
+
+\fill (0,1) circle (2pt);
+
+\end{tikzpicture}
+\caption{Punkte im Parameterraum}
+\label{b}
+\end{subfigure}
+\caption{Grundprinzip der Hough-Transformation}
+\label{Hough Prinzip}
+\end{figure}
+
+\section{Homographie}
+
+Eine Homographie, auch projektive Transformation, ist eine bijektive Abbildung, welche geradlinien erhält. Sie beschreibt die mathematische Beziehung zwischen zwei Bildern derselben planaren Oberfläche oder zwischen zwei Bildern, die von derselben Kamera aus verschiedenen Rotationswinkeln aufgenommen wurden.
+
+Die Homographie wird durch eine 3x3 Matrix H in homogenen Koordinaten dargestellt. Für einen Bildpunkt x im Ausgangbild gilt der korrespondierende Punkt x' im Zielbild. \cite{opencv, szeliski_computer_2022}
+
+\[ x' = H * x\]
+
+\section{Homogene Koordinaten}
+
+Homogene Koordinaten sind eine Darstellung von Punkten im n-dimensionalen Raum durch (n+1)-dimensionale Vektoren, wobei alle skalaren Vielfachen desselben Vektors als äquivalent betrachtet werden.
+
+Formal gilt: Ein Punkt (u, v) in der kartesischen Ebene $\mathbb{R}^2$ wird in homogenen Koordinaten als Tripel (x, y, w) dargestellt, wobei gilt:
+
+\[ (u, v) \longleftrightarrow (x, y, w) \quad \text{mit} \quad u = \frac{x}{w}, \; v = \frac{y}{w}, \; w \neq 0 \]
