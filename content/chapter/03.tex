@@ -1,5 +1,7 @@
 \chapter{Methodik}
 
+In diesem Kapitel werden die Funktionsweisen der beiden Ansätze - algorischmisch und KI-basiert - detailliert beschrieben.
+
 \section{Algorithmischer Ansatz}
 
 Inhalte dieses Kapitels:
@@ -13,7 +15,149 @@ Inhalte dieses Kapitels:
     \item Berechnung des Scores
 \end{itemize}
 
+Der algorithmische Ansatz verfolgt das Ziel, eine Dartscheibe in einem mobilen Foto vollständig zu lokalisieren, zu entzerren und ihre Felder geometrisch zu segmentieren -- ohne den Einsatz lernbasierter Verfahren.
+
+Grundvoraussetzung für diesen Ansatz ist, dass die Dartscheibe im Bild als Kreis dargestellt ist. Damit ist die Perspektivische Korrektur hier nicht berücksichtigt.
+
+Die Abbildung \ref{fig:algo_pipe} veranschaulicht die algorithmische Pipeline. Nachfolgend wird jeder Punkt im Detail beschrieben.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.5\textwidth]{images/algorithmische_pipeline.png}
+    \caption{Übersicht über die algorithmische Pipeline}
+    \label{fig:algo_pipe}
+\end{figure}
+
+\subsection{Vorverarbeitung}
+
+Als erster Schritt der Pipeline wird das Eingangsfoto, das auf eine Auflösung von 3000 x 4000 Pixeln festgelegt wurde, vorverarbeitet und für die weitere Verarbeitung aufbereitet. Hierzu wird das Bild vom RGB- in das Graustufenformat konvertiert. Zur Reduktion von Bildrauschen kommt ein Median-Filter mit einer Kernelgröße von $k = 11$ zum Einsatz. Im Vergleich zu anderen Filtern, beispielsweise dem Gaußschen Weichzeichner, eignet sich der Median-Filter besser für die Vorverarbeitung von Dartscheibenaufnahmen, da er Salz- und Pfeffer-Rauschen effektiv unterdrückt, ohne die für die nachfolgende Kantendetektion relevanten Übergänge zwischen den Feldbereichen zu verwischen \cite{opencv_blur}.
+
+\subsection{Erkennung der Dartscheibe im Bild}
+
+Die Lokalisierung der Dartscheibe erfolgt mittels der Hough-Kreiserkennung,
+die auf dem vorverarbeiteten Graustufenbild operiert. Da die Scheibengröße
+im Bild je nach Aufnahmeabstand variiert, werden der minimale und maximale
+Suchradius dynamisch in Abhängigkeit der kürzeren Bildkante berechnet.
+Ausgehend von einem initialen Wertebereich von 70\,\% bis 75\,\% der
+Bildkantenlänge wird der Suchbereich iterativ um jeweils 5\,\% reduziert,
+sofern keine Kreishypothese gefunden wurde. Dieses Vorgehen stellt sicher,
+dass auch bei ungewöhnlichen Bildproportionen oder größeren Aufnahmeabständen
+eine Erkennung möglich bleibt, solange die Scheibe einen Mindestanteil
+von ca. 10\,\% der Bildbreite einnimmt.
+
+Die Hough-Transformation wird mit einem Akkumulatorschwellwert von
+$\mathtt{param2} = 200$ und einem Kantenschwellwert von
+$\mathtt{param1} = 300$ konfiguriert, die empirisch ermittelt wurden.
+Da viele Dartscheiben mit einem äußeren Schutzring versehen sind, dessen
+Radius den der eigentlichen Scheibe übersteigt, wird bei mehreren
+erkannten Kreishypothesen jene mit dem kleinsten Radius als Scheibenrand
+selektiert.
+
+\subsection{Perspektivische Korrektur und Normalisierung}
+
+Nach der Lokalisierung der Dartscheibe wird das Eingabebild mittels
+einer Homographie auf ein einheitliches quadratisches Format von
+$1024 \times 1024$ Pixeln transformiert. Ziel dieser Normalisierung
+ist es, die anschließende geometrische Feldsegmentierung unabhängig
+von Aufnahmeabstand und Bildauflösung zu gestalten.
+
+Die Homographie wird auf Basis von vier Korrespondenzpunkten berechnet.
+Als Quellpunkte dienen die vier Ecken des achsenparallelen Begrenzungsrahmens
+(\textit{Bounding Box}) des erkannten Kreises, die sich aus Mittelpunkt
+$(c_x, c_y)$ und Radius $r$ wie folgt ergeben:
+
+\begin{equation}
+    P_{\text{src}} = \begin{pmatrix}
+        c_x - r & c_y - r \\
+        c_x + r & c_y - r \\
+        c_x + r & c_y + r \\
+        c_x - r & c_y + r
+    \end{pmatrix}
+\end{equation}
+
+Die Zielpunkte $P_{\text{dst}}$ entsprechen den vier Ecken des
+$(1024 \times 1024)$-Ausgabebildes. Die Homographiematrix $H$ wird
+mittels \texttt{cv2.getPerspectiveTransform} aus diesen Punktpaaren
+berechnet und anschließend per \texttt{cv2.warpPerspective} auf das
+Originalbild angewendet.
+
+Dieser Ansatz setzt voraus, dass die Kamera annähernd frontal auf die
+Dartscheibe gerichtet ist. Da die Quellpunkte aus der achsenparallelen
+Begrenzungsbox des erkannten Kreises abgeleitet werden, enthält die
+berechnete Homographie keine Information über die tatsächliche räumliche
+Orientierung der Scheibe. Bei stärkerer perspektivischer Verzerrung
+führt dies zu einer unvollständigen Entzerrung, was die Zuverlässigkeit
+der nachgelagerten Feldsegmentierung beeinträchtigt. Diese Einschränkung
+motiviert den in Kapitel~\ref{sec:ml-ansatz} beschriebenen
+Machine-Learning-Ansatz, der eine robustere Grundlage für die
+perspektivische Korrektur bietet.
+
+\subsection{Lokalisierung der Ringe}
+
+Nach der perspektivischen Normalisierung liegt die Dartscheibe als
+frontale Draufsicht im einheitlichen $1024 \times 1024$-Format vor.
+In diesem Koordinatensystem befindet sich der Scheibenmittelpunkt
+näherungsweise bei $(512, 512)$. Die geometrische Struktur einer
+Dartscheibe besteht aus konzentrischen Ringen mit definierten Radien,
+die auf Basis der normierten Darstellung mittels erneuter
+Hough-Kreiserkennung detektiert werden.
+
+Die Implementierung der Hough-Transformation durch die Bibliothek opencv-python enthält einen Parameter \texttt{minDist}. Dieser gibt den minimalen Abstand zwischen zwei erkannten Kreisen in Pixel an. Dies ist für die Erkennung der Ringsegmente einer Dartscheibe problematisch, da sich diese einen Mittelpunkt teilen, wobei sich nur die Radien unterscheiden. Da sich dieser Parameter nicht auf 0 setzen lässt ist es notwendig die Hough-Transformation ringweise auszuführen. Für jeden Ring ist ein enger Suchbereich $[r_{\min}, r_{\max}]$ definiert, der aus den bekannten Proportionen einer Dartscheibe abgeleitet wurde. Tabelle~\ref{tab:ring-definitions} listet die verwendeten Ringe und
+ihre jeweiligen Suchbereiche.
+
+\begin{table}[h]
+    \centering
+    \begin{tabular}{lcc}
+        \toprule
+        \textbf{Ring}   & $r_{\min}$ (px) & $r_{\max}$ (px) \\
+        \midrule
+        Bulls-Eye       & 0   & 25  \\
+        Outer Bull      & 30  & 60  \\
+        Inner Triple    & 190 & 230 \\
+        Outer Triple    & 240 & 270 \\
+        Inner Double    & 340 & 385 \\
+        Outer Double    & 390 & 450 \\
+        \bottomrule
+    \end{tabular}
+    \caption{Suchbereiche der Hough-Kreiserkennung je Ring im
+             normierten $1024 \times 1024$-Koordinatensystem.}
+    \label{tab:ring-definitions}
+\end{table}
+
+Für jeden Suchbereich wird die Hough-Transformation mit einem
+Akkumulatorschwellwert von $\mathtt{param2} = 50$ und einem
+Kantenschwellwert von $\mathtt{param1} = 220$ ausgeführt. Der
+niedrigere Akkumulatorschwellwert gegenüber der initialen
+Scheibenerkennung ist dabei bewusst gewählt, da die Ringkanten im
+normierten Bild feiner und weniger dominant sind als der äußere
+Scheibenrand.
+
+Liefert die Hough-Transformation mehrere Kreishypothesen innerhalb
+eines Suchbereichs, wird jene selektiert, deren Mittelpunkt den
+geringsten euklidischen Abstand zum Referenzpunkt $(512, 512)$
+aufweist:
+
+\begin{equation}
+    c^* = \arg\min_{c \in \mathcal{C}} \;
+          \left(c_x - x_{\text{ref}}\right)^2 +
+          \left(c_y - y_{\text{ref}}\right)^2
+\end{equation}
+
+\noindent
+wobei $\mathcal{C}$ die Menge aller erkannten Kreishypothesen im
+jeweiligen Suchbereich bezeichnet. Wird für einen Ring keine
+Hypothese gefunden, wird dieser übersprungen und in der
+nachgelagerten Feldsegmentierung als nicht erkannt behandelt.
+
+% Fehlende Beschreibung was bei Fehlern passiert. Ich kann näher auf die einzelnen Kriterien eingehen (Robustheit, Geschwindigkeit etc.)
+
+\subsection{Lokalisierung der Segmentlinien}
+
+\subsection{Berechnung des Scores}
+
 \section{Machine Learning Ansatz}
+
+\label{sec:ml-ansatz}
 
 Inhalte dieses Kapitels:
 

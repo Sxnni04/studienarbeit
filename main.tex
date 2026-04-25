@@ -114,9 +114,10 @@
 \usepackage{enumitem}	                                                 
 \usepackage{graphicx}
 \usepackage{subcaption}
-\usepackage{pdfpages}                                                         
+\usepackage{pdfpages}                                                      
 \usepackage{xcolor} 	                                                    
 \usepackage{float}
+\usepackage{booktabs}
 \usepackage{array}
 \usepackage{calc}		                         
 \usepackage[right]{eurosym}
@@ -232,11 +233,9 @@
 
 \begin{spacing}{1}
 \begin{titlepage}
-	\begin{longtable}{p{8cm} p{8cm}}
-		\raggedright {\raisebox{\ht\strutbox-\totalheight}{\includegraphics[height=2.5cm]{images/cover/logo-dhbw.pdf}}} &
-		% folgende Zeile nur einfügen bei Praxisarbeiten
-		\raggedleft {\raisebox{\ht\strutbox-\totalheight}{\includegraphics[height=2.5cm]{images/cover/logo-company.png}}}
-	\end{longtable}
+	\begin{center}
+		\includegraphics[height=2.5cm]{cover/logo-dhbw.pdf}
+	\end{center}
 	\enlargethispage{20mm}
 	\begin{center}
 	\doublespacing{
