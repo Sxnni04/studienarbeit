@@ -1,5 +1,17 @@
 \chapter{Theoretische Grundlagen}
 
+\section{Canny-Kantendetektion}
+
+Der Canny-Kantendetektor, vorgestellt von John Canny 1986 \cite{canny_computational_1986}, ist ein mehrstufiger Algorithmus, der auf einer formalen Definition der Zielsetzung eines idealen Kantendetektors basiert. Er formulierte die Kantenerkennung als ein Optimierungsproblem. Er definierte drei mathematische Kriterien, die ein optimaler Detektor für stufenförmige Kanten erfüllen muss, und leitete daraus eine spezifische Operatorform ab. Der Algorithmus ist daher als eine direkte technische Umsetzung dieser Kriterien zu verstehen.
+
+\begin{enumerate}
+  \item \textbf{Gute Erkennungrate:}  Die Fehlerwahrscheinlichkeit, echte Kanten zu übersehen oder fälschlicherweise Nicht-Kanten zu markieren, muss minimiert werden.
+  \item \textbf{Gute Lokalisierung:} Die markierte Kantenposition soll eine minimale Abweichung vom tatsächlichen Kantenzentrum aufweisen.
+  \item \textbf{Eindeuige Antwort:} Der Detektor darf auf eine einzelne Kante nicht mit mehreren lokalen Maxima antworten.
+\end{enumerate}
+
+Der Canny-Kantendetektor arbeitet in vier Schritten. Zunächst wird das Eingabebild durch Faltung mit einem zweidimensionalen Gauß-Filter geglättet, um hochfrequentes Rauschen zu unterdrücken. Die Standardabweichung $\sigma$ des Filters ist dabei der zentrale freie Parameter: Ein größeres $\sigma$ führt zu robusterer Erkennung auf Kosten der Lokalisierungsgenauigkeit feiner Kantenstrukturen. Im zweiten Schritt wird der Gradient des geglätteten Bildes durch Faltung mit der ersten Ableitung der Gauß-Funktion berechnet, woraus für jeden Pixel die Kantenstärke und Kantenrichtung bestimmt werden. Der dritte Schritt, die Nicht-Maxima-Unterdrückung (Non-Maximum Suppression), dünnt die Kantenantworten auf eine Pixelbreite aus, indem nur lokale Maxima entlang der Gradientenrichtung erhalten bleiben. Abschließend erfolgt eine Klassifikation mittels Hysterese-Schwellwertverfahren mit zwei Schwellwerten $T_1$ und $T_2$. Pixel oberhalb von $T_1$ gelten als sichere Kanten, Pixel zwischen $T_2$ und $T_1$ werden nur dann akzeptiert, wenn sie mit einer sicheren Kante räumlich verbunden sind. Dies verhindert das als \textit{Streaking} bekannte Abreißen von Kantenzügen durch lokale Schwankungen der Kantenstärke.
+
 \section{Hough Transformation}
 \label{Hough-chapter}
 
@@ -79,9 +91,7 @@ Um die \ac{HT} berechnen zu können, wird der Parameterraum als ein mehrdimensio
 \label{Accumulator-Array}
 \end{table}
 
-\section{Polarkoordinaten}
-
-In einer Veröffentlichung von Duda und Hart \cite{duda_use_1972} wurde vorgeschlagen, dass man statt der ursprünglichen Geradenform mit m und c wie in Kapitel \ref{Hough-chapter} beschrieben, die Normalform welche durch folgende Gleichung beschrieben wird nutzt. Dabei gibt $\rho$ den Abstand der Geraden zum Ursprung und $\theta$ den Winkel der Normalen zur Gerade im Intervall [0, $\pi$] an.
+In einer Veröffentlichung von Duda und Hart \cite{duda_use_1972} wurde vorgeschlagen, dass man statt der ursprünglichen Geradenform mit m und c die Normalform welche durch folgende Gleichung beschrieben wird nutzt. Dabei gibt $\rho$ den Abstand der Geraden zum Ursprung und $\theta$ den Winkel der Normalen zur Gerade im Intervall [0, $\pi$] an.
 
 \[
 \rho = x * cos(\theta) + y * sin(\theta)
@@ -145,3 +155,9 @@ Homogene Koordinaten sind eine Darstellung von Punkten im n-dimensionalen Raum d
 Formal gilt: Ein Punkt (u, v) in der kartesischen Ebene $\mathbb{R}^2$ wird in homogenen Koordinaten als Tripel (x, y, w) dargestellt, wobei gilt:
 
 \[ (u, v) \longleftrightarrow (x, y, w) \quad \text{mit} \quad u = \frac{x}{w}, \; v = \frac{y}{w}, \; w \neq 0 \]
+
+\section{Convolutional Neural Networks (CNNs)}
+
+\section{U-Net Architektur}
+
+\section{Evaluationsmetriken}

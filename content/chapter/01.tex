@@ -1,1 +1,55 @@
 \chapter{Einleitung}
+
+Beim Dartspielen stellt das manuelle Zählen der Punkte für viele Hobbyspielerinnen und Hobbyspieler weiterhin eine zentrale Hürde dar, da es als zeitaufwändig, fehleranfällig und wenig intuitiv empfunden wird. Zwar existieren digitale Alternativen wie etwa elektronische Dartscheiben, doch bevorzugen viele Spielerinnen und Spieler weiterhin klassische Boards mit echten Pfeilen. Daraus erwächst der Wunsch nach einer Lösung, die das Punktezählen kontaktlos und ohne zusätzliches Equipment ermöglicht - idealerweise allein basierend auf einem Smartphone-Foto.
+
+Für eine präzise, automatisierte Score-Ermittlung ist die zuverlässige digitale Repräsentation der Dartscheibenstruktur eine grundlegende Voraussetzung. Damit die geworfenen Punkte eindeutig den entsprechenden Feldern zugeordnet werden können, muss die Dartscheibe in einem aufgenommenen Bild robust erkannt, perspektivisch korrigiert und geometrisch segmentiert werden. Dieser Prozess ist wesentlicher Bestandteil der Bildverarbeitungspipeline und bildet die algorithmische Grundlage für sämtliche nachgelagerten Analyse- und Klassifikationsschritte.
+
+Die technische Umsetzung dieser Segmentierung birgt jedoch mehrere Herausforderungen. Die klassische Dartscheibe, weist aufgrund ihrer ringförmigen Struktur, kontrastintensiven Farbfelder, feinen Segmentlinien sowie metallischer oder faserbasierter Materialien eine komplexe Erscheinung auf. Variierende Kamerawinkel erzeugen projektive Verzerrungen, die ohne geeignete Transformation zu fehlerhaften Feldzuordnungen führen würden. Zusätzlich erschweren wechselnde Lichtbedingungen, Reflexionen der Metall-Score-Ringe, Verdeckungen durch bereits steckende Dartpfeile, schlechter Zustand der Scheibe durch intensive Nutzung sowie unterschiedliche Hintergründe das Erkennen der einzelnen Konturen einer Dartscheibe. 
+
+Zur Lösung dieser Problematik stehen einerseits klassische, algorithmische Verfahren der Bildverarbeitung zur Verfügung - etwa Hough-Transformationen zur Kreis-Detektion, Canny-Edge-Filtering zur Kantenerkennung oder homographiebasierte Perspektivkorrekturen. Andererseits existieren moderne Deep-Learning-Ansätze, die mittels neuronaler Netze und semantischer Segmentierung (z. B. über architekturen wie U-Net oder Vision-Transformer-basierte Modelle) eine lernbasierte Erkennung ermöglichen. Ein Schwerpunkt dieser Studienarbeit besteht darin, die Ansätze hinsichtlich Robustheit, Erkennungsgenauigkeit, Implementierungsaufwand und Verarbeitungsgeschwindigkeit systematisch zu vergleichen.
+
+Da die Bildaufnahme durch die Nutzerinnen und Nutzer nicht standardisiert erfolgt, unterscheiden sich die Fotos je nach Standpunkt, Distanz und Kamerawinkel teils erheblich voneinander. Die Position der fotografierenden Person variiert von Aufnahme zu Aufnahme, wodurch die Dartscheibe im Bild unterschiedlich groß erscheint und projektive Verzerrungen entstehen. Eine robuste Lösung muss daher unabhängig von festen Aufnahmepositionen funktionieren und in der Lage sein, perspektivische Abweichungen zuverlässig zu normalisieren. Diese Problematik stellt eine zusätzliche Herausforderung dar, da klassische regelbasierte Verfahren häufig feste geometrische Annahmen treffen, während lernbasierte Ansätze genügend Generalisierung für freie Aufnahmesituationen benötigen.
+
+Ziel dieser Studienarbeit ist die Entwicklung und Evaluation eines robusten, ausschließlich auf Smartphone-Fotos basierenden Verfahrens zur zuverlässigen Dartboard-Erkennung, perspektivischen Normalisierung und geometrisch exakten Segmentierung klassischer Dartscheiben. Das Verfahren soll insbesondere unabhängig von der Position der Aufnahme, skalierungsinvariant und fehlertolerant gegenüber realen Störfaktoren wie ungünstigen Lichtverhältnissen oder teilweisen Verdeckungen durch bereits steckende Pfeile funktionieren. Es bildet damit die essenzielle Grundlage für eine spätere, feldgenaue Punktzuordnung und automatisierte Score-Berechnung.
+
+Der methodische Schwerpunkt der Arbeit liegt auf der Konzeption eines klassischen, algorithmischen Computer-Vision-Ansatzes, bei dem die Scheibenregion primär über eine Kreiserkennung mittels Hough-Transformation lokalisiert wird. Um die dafür relevanten Kanteninformationen zu extrahieren, wird das Eingangsfoto zunächst durch Canny-Edge-Filtering aufbereitet. Anschließend soll eine homographiebasierte Perspektivtransformation eine orthogonale Board-Draufsicht erzeugen, aus der die Feldgeometrie über ein mathematisch definiertes Dartboard-Modell (Ring- und Radialgitter) berechnet und in einzelne Scoring-Segmente überführt wird.
+
+Neben dem klassischen Computer-Vision-Ansatz verfolgt die Arbeit das Ziel,einen lernbasierten Lokalisierungsansatz zu entwickeln und zu evaluieren. Hierfür soll ein U-Net-basiertes Deep-Learning-Modell eingesetzt werden, das die Dartscheibe semantisch im Bild segmentiert und ihre Position als Pixelmaske vorhersagt. Auf eine vollständige Feldsegmentierung mittels Deep Learning wird dabei bewusst verzichtet: Da alle Felder einer Dartscheibe nahezu identische visuelle Merkmale aufweisen und sich lediglich durch ihre geometrische Position unterscheiden, wäre ein solches Modell auf einen umfangreichen, sorgfältig annotierten Datensatz angewiesen, dessen Erstellung den Rahmen dieser Arbeit übersteigen würde. Stattdessen übernimmt das U-Net-Modell ausschließlich die grobe Lokalisierung der Scheibe im Bild, während die präzise Segmentierung der einzelnen Felder anschließend durch einen geometrisch-algorithmischen Ansatz auf Basis von Homographie und Kreisgeometrie erfolgt. Ein zentraler Gegenstand der Zielsetzung ist dabei der Vergleich dieses Hybridansatzes mit einer rein algorithmischen Pipeline, um Stärken und Schwächen beider Varianten hinsichtlich Robustheit, Genauigkeit und praktischer Eignung für den mobilen Einsatz zu bewerten.
+
+Sollte im Projektverlauf noch Zeit verbleiben, wird zusätzlich eine prototypische Kopplung mit einer komplementären Arbeit angestrebt, die Dartpfeile im Bild erkennt und deren Position bestimmt. Die Kombination beider Verfahren ermöglicht perspektivisch die Realisierung einer vollständigen, automatisierten Score-Ermittlung als Basis für eine nutzerfreundliche Dart-Scoring-App, die das analoge Spielgefühl klassischer Boards mit digitaler Unterstützung verbindet.
+
+Im Mittelpunkt dieser Arbeit steht die folgende übergeordnete Leitfrage:
+
+\begin{quote}
+    \textit{Welcher Ansatz -- algorithmisch oder KI-basiert -- bietet für die
+    Lokalisierung und Segmentierung einer Dartscheibe in mobilen Fotos die
+    bessere Gesamtbalance zwischen Implementierungsaufwand, Erkennungsgenauigkeit,
+    Robustheit gegenüber realen Aufnahmebedingungen und Verarbeitungsgeschwindigkeit
+    auf mobilen Endgeräten?}
+\end{quote}
+
+\noindent
+Zur Beantwortung dieser Leitfrage werden die folgenden untergeordneten
+Forschungsfragen untersucht:
+
+\begin{itemize}
+    \item \textbf{Algorithmische Lokalisierung:}
+          Wie robust und präzise lässt sich eine Dartscheibe in mobilen Fotos
+          mittels Canny-Filterung und Hough-Kreiserkennung lokalisieren und
+          anschließend per Homographie entzerren?
+
+    \item \textbf{KI-basierte Lokalisierung:}
+          Welche Erkennungsgenauigkeit erreicht ein U-Net-Modell bei der
+          Lokalisierung von Dartscheiben unter variierenden Aufnahmebedingungen
+          auf mobilen Endgeräten?
+
+    \item \textbf{Hybridansatz:}
+          Inwiefern verbessert eine vorgelagerte KI-basierte Lokalisierung
+          die Genauigkeit der anschließenden algorithmischen Feldsegmentierung
+          gegenüber einem rein algorithmischen Pipeline-Ansatz?
+
+    \item \textbf{Robustheit und Störfaktoren:}
+          Welche Aufnahmebedingungen -- insbesondere Lichtverhältnisse,
+          Perspektive, Skalierung und Verdeckungen -- beeinträchtigen die
+          Lokalisierungsgenauigkeit beider Ansätze am stärksten?
+\end{itemize}
