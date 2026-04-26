@@ -4,22 +4,9 @@ In diesem Kapitel werden die Funktionsweisen der beiden Ansätze - algorischmisc
 
 \section{Algorithmischer Ansatz}
 
-Inhalte dieses Kapitels:
+Der algorithmische Ansatz verfolgt das Ziel, eine Dartscheibe in einem mobilen Foto vollständig zu lokalisieren, zu entzerren und ihre Felder geometrisch zu segmentieren -- ohne den Einsatz lernbasierter Verfahren. Grundvoraussetzung für diesen Ansatz ist, dass die Dartscheibe im Bild als Kreis dargestellt ist. Damit ist die Perspektivische Korrektur hier nicht berücksichtigt.
 
-\begin{itemize}
-    \item Aufbereitung des Fotos (Canny + Blur)
-    \item Erkennung des Größten Kreises (Rand der Dartscheibe)
-    \item Anpassung der Perspektive
-    \item Finden der Ringe
-    \item Erkennen der Linien
-    \item Berechnung des Scores
-\end{itemize}
-
-Der algorithmische Ansatz verfolgt das Ziel, eine Dartscheibe in einem mobilen Foto vollständig zu lokalisieren, zu entzerren und ihre Felder geometrisch zu segmentieren -- ohne den Einsatz lernbasierter Verfahren.
-
-Grundvoraussetzung für diesen Ansatz ist, dass die Dartscheibe im Bild als Kreis dargestellt ist. Damit ist die Perspektivische Korrektur hier nicht berücksichtigt.
-
-Die Abbildung \ref{fig:algo_pipe} veranschaulicht die algorithmische Pipeline. Nachfolgend wird jeder Punkt im Detail beschrieben.
+Die Abbildung \ref{fig:algo_pipe} veranschaulicht die algorithmische Pipeline. Diese setzt sich aus folgenden aufeinanderfolgenden Schritten zusammen: Vorverarbeitung, Erkennung der Dartscheibe im Bild, perspektivische Korrektur, Lokalisierung der Segmentringe, Lokalisierung der Segmentlinien und abschließende Berechnung des Scores. Die dargestellten Pfeile geben dabei die verbindliche Reihenfolge vor, in der die einzelnen Schritte zwingend durchlaufen werden müssen.
 
 \begin{figure}[H]
     \centering
@@ -54,6 +41,8 @@ erkannten Kreishypothesen jene mit dem kleinsten Radius als Scheibenrand
 selektiert.
 
 \subsection{Perspektivische Korrektur und Normalisierung}
+
+\label{sec:homography}
 
 Nach der Lokalisierung der Dartscheibe wird das Eingabebild mittels
 einer Homographie auf ein einheitliches quadratisches Format von
@@ -91,6 +80,10 @@ der nachgelagerten Feldsegmentierung beeinträchtigt. Diese Einschränkung
 motiviert den in Kapitel~\ref{sec:ml-ansatz} beschriebenen
 Machine-Learning-Ansatz, der eine robustere Grundlage für die
 perspektivische Korrektur bietet.
+
+% Dieser Abschnitt komplett in Design übernehmen
+
+Auf das transformierte Bild wird erneut der bereits beschriebene Graustufenfilter angewendet, um die Erkennung der Segmentringe- und Linien zu ermöglichen. 
 
 \subsection{Lokalisierung der Ringe}
 
@@ -153,7 +146,163 @@ nachgelagerten Feldsegmentierung als nicht erkannt behandelt.
 
 \subsection{Lokalisierung der Segmentlinien}
 
+Zur Erkennung der radialen Segmentlinien einer Dartscheibe wird eine eigene Bildverarbeitungspipeline eingesetzt, die wieder aus drei aufeinanderfolgenden Schritten besteht: Vorverarbeitung, Kantendetektion mit anschließender \ac{HT} sowie einer abschließenden Clusterung der detektierten Linien.
+
+Dabei wurde im ersten Schritt erneut ein medianer Filter auf das Eingangsfoto angewandt um das rauschen weiter zu unterdrücken und saubere Linien erkennen zu können.
+
+Auf dem vorverarbeiteten Bild wird anschließend der Canny-Kantendetektionsalgorithmus angewendet, wobei die Hysterese-Schwellenwerte auf 250 bzw. 300 gesetzt sind. Diese verhältnismäßig hohen Schwellenwerte bewirken, dass nur ausgeprägte, kontrastreiche Kanten extrahiert werden, was die Anzahl störender Artefakte reduziert.
+
+Die so gewonnene Kantenkarte dient als Eingabe für die klassische \ac{HT} zur Liniendetektion (cv2.HoughLines). Diese arbeitet im Parameterraum $(\rho, \theta)$, wobei $\rho$ den senkrechten Abstand einer Linie vom Koordinatenursprung und $\theta$ deren Winkel zur horizontalen Achse beschreibt. Die Auflösung beträgt $\Delta\rho=0,5$ Pixel und $\Delta\theta=1$°, bei einem Abstimmungsschwellenwert von 80 Punkten.
+
+Da auf einer Dartscheibe alle Segmentierungslinien durch den Mittelpunkt verlaufen, wird nach der Hough-Transformation ein geometrischer Filter angewendet. Für jede detektierte Linie $(\rho, \theta)$ wird der Abstand zwischen dem angegebenen $\rho$-Wert und dem projizierten $\rho$-Wert des bekannten Bildmittelpunkts $(c_x, c_y) = (512, 512)$ berechnet:
+ 
+\begin{equation}
+    d = \left| \rho - \left( c_x \cdot \cos\theta + c_y \cdot \sin\theta \right) \right|
+\end{equation}
+ 
+Linien, bei denen dieser Abstand einen Schwellenwert von 20 Pixeln überschreitet, werden als Nicht-Zentrumslinien verworfen. Dieser Schritt reduziert Fehldetektionen erheblich, da er domänenspezifisches Wissen über die Geometrie der Dartscheibe explizit in den Algorithmus einbezieht.
+ 
+Die Hough-Transformation liefert typischerweise mehrere nah beieinanderliegende Liniendetektionen für eine einzige physikalische Linie. Um diese Redundanz zu eliminieren, wird ein einfaches winkelbasiertes Clusterverfahren eingesetzt. Dabei werden alle Linien iterativ gruppiert, deren Winkel $\theta$ um weniger als $5$° voneinander abweichen. Jede so gebildete Gruppe wird durch ihre mittlere Linie -- d.\,h. den Durchschnitt aller $\rho$- und $\theta$-Werte innerhalb der Gruppe -- repräsentiert. Das Ergebnis ist eine bereinigte Menge eindeutiger, repräsentativer Linien, die den radialen Segmentierungslinien der Dartscheibe entsprechen.
+
 \subsection{Berechnung des Scores}
+
+Nachdem die Segmentierungslinien und Kreise der Dartscheibe detektiert wurden, kann aus der Position eines Dartpfeils der zugehörige Punktwert berechnet werden. Die Score-Berechnung gliedert sich in drei Schritte: Koordinatentransformation, Winkel- und Radiusbestimmung sowie die abschließende Feldzuordnung.
+
+Um den score korrekt berechnen zu können, muss der Auftreffpunkt $(x, y)$ aus dem Ursprungsbild zunächst mittels der gleichen homographischen Transformation, welche in Abschnitt \ref{sec:homography} berechnet wurde, in das normierte Scheibenkoordinatensystem überführt werden. Der transformierte Punkt $p' = (p_x, p_y)$ liegt anschließend in einem quadratischen Bildraum mit dem Scheibenmittelpunkt bei $(c_x, c_y) = (512, 512)$.
+
+Im normierten Koordinatensystem werden für den transformierten Punkt zwei geometrische Merkmale berechnet. Der Polarwinkel~$\varphi$ gibt die Richtung des Punktes relativ zum Scheibenmittelpunkt an und wird mittels der Arkustangens-Funktion bestimmt:
+
+\begin{equation}
+    \varphi = \mathrm{atan2}(p_y - c_y,\; p_x - c_x)
+\end{equation}
+
+Da \texttt{atan2} Werte im Bereich $(-\pi, \pi]$ liefert, wird das Ergebnis auf das Intervall $[0, 2\pi)$ normalisiert, indem bei negativen Winkeln $2\pi$ addiert wird. Der euklidische Abstand~$r$ des Punktes vom Scheibenmittelpunkt ergibt sich zu:
+ 
+\begin{equation}
+    r = \sqrt{(p_x - c_x)^2 + (p_y - c_y)^2}
+\end{equation}
+
+Die detektierten Hough-Linien beschreiben jeweils eine Halbgerade. Um das
+vollständige Winkelintervall $[0, 2\pi)$ abzudecken, wird jede Linie mit dem
+Winkel~$\theta$ um ihre Gegenrichtung $\theta + \pi$ ergänzt. Die so gewonnenen
+Winkelwerte werden aufsteigend sortiert und bilden die Grenzen der 20 Winkelsegmente
+der Dartscheibe.
+
+Der Winkel~$\varphi$ des Auftreffpunkts wird anschließend in dieser sortierten Liste
+verortet: Das zugehörige Segment ist dasjenige, dessen linke Grenze~$\varphi_l$ und
+rechte Grenze~$\varphi_r$ den Punkt einschließen, d.\,h.:
+
+\begin{equation}
+    \varphi_l \leq \varphi < \varphi_r
+\end{equation}
+
+Der so bestimmte Segmentindex wird mit einem empirisch ermittelten Offset von
+$\Delta = 6$ Positionen korrigiert, um die Abweichung zwischen der geometrischen
+Segmentreihenfolge und der auf der Dartscheibe aufgedruckten Zahlenbelegung
+auszugleichen. Der Grundwert~$b$ des Feldes ergibt sich dann aus der
+standardisierten Dart-Reihenfolge \texttt{DART\_ORDER} als:
+
+\begin{equation}
+    b = \texttt{DART\_ORDER}\bigl[(s + \Delta) \bmod 20\bigr]
+\end{equation}
+
+wobei $s$ den rohen Segmentindex bezeichnet.
+
+Anhand des Abstands~$r$ vom Scheibenmittelpunkt wird abschließend das radiale Feld
+bestimmt, in das der Dartpfeil eingedrungen ist. Die Radiusgrenzen der sechs
+konzentrischen Zonen werden aus den zuvor detektierten Kreisen der Scheibe
+extrahiert und aufsteigend sortiert. Tabelle~\ref{tab:dart_zones} fasst die
+Zuordnung zusammen.
+
+\begin{table}[H]
+    \centering
+    \begin{tabular}{lll}
+        \hline
+        \textbf{Bedingung} & \textbf{Feld} & \textbf{Punktwert} \\
+        \hline
+        $r \leq r_{\text{Bull}}$                              & Bullseye (Bull's Eye) & $50$ \\
+        $r \leq r_{\text{OuterBull}}$                         & Outer Bull            & $25$ \\
+        $r_{\text{Triple,i}} \leq r \leq r_{\text{Triple,o}}$ & Triple-Ring           & $3b$ \\
+        $r_{\text{Double,i}} \leq r \leq r_{\text{Double,o}}$ & Double-Ring           & $2b$ \\
+        $r \leq r_{\text{Double,o}}$                          & Einfaches Feld        & $b$  \\
+        $r > r_{\text{Double,o}}$                             & Außerhalb             & $0$  \\
+        \hline
+    \end{tabular}
+    \caption{Radiale Feldzuordnung und zugehörige Punktwerte. $b$ bezeichnet den
+    Grundwert des getroffenen Winkelsegments.}
+    \label{tab:dart_zones}
+\end{table}
+
+Der finale Punktwert ergibt sich damit eindeutig aus der Kombination des
+Winkelsegments und der radialen Zone des Auftreffpunkts.
+
+% Abstand
+
+Die Abbildung \ref{fig:score_berechnung} visualisiert die Berechnung des Scores eines Punktes P
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[scale=1.0]
+
+  % --- Zonenfüllungen ---
+  \fill[gray!12] (0,0) circle (3.2cm);           % Single-Feld
+  \fill[red!15]  (0,0) circle (3.2cm);
+  \fill[gray!12] (0,0) circle (2.85cm);           % Zwischen Double und Triple
+  \fill[red!15]  (0,0) circle (1.85cm);           % Triple-Ring (außen)
+  \fill[gray!12] (0,0) circle (1.55cm);           % Single innen
+  \fill[blue!20] (0,0) circle (0.55cm);           % Outer Bull
+  \fill[blue!45] (0,0) circle (0.23cm);           % Bullseye
+
+  % --- Kreislinien ---
+  \draw[gray!60, thin]            (0,0) circle (3.20cm); % Double außen
+  \draw[gray!40, thin, dashed]    (0,0) circle (2.85cm); % Double innen
+  \draw[gray!60, thin]            (0,0) circle (1.85cm); % Triple außen
+  \draw[gray!40, thin, dashed]    (0,0) circle (1.55cm); % Triple innen
+  \draw[gray!60, thin]            (0,0) circle (0.55cm); % Outer Bull
+  \draw[gray!60, thin]            (0,0) circle (0.23cm); % Bull
+
+  % --- Beispielhafte Segmentlinien ---
+  \draw[gray!50, thin, dashed] (0,0) -- (90:3.4cm);
+  \draw[gray!50, thin, dashed] (0,0) -- (72:3.4cm);
+  \draw[gray!50, thin, dashed] (0,0) -- (54:3.4cm);
+
+  % --- Auftreffpunkt P ---
+  % Winkel phi = 63°, Radius r = 2.2cm (Single-Feld)
+  \coordinate (P) at (63:2.2cm);
+  \fill[red!80!black] (P) circle (2.5pt);
+
+  % --- Radiuslinie r ---
+  \draw[red!70!black, thick] (0,0) -- (P)
+      node[midway, above left, font=\small] {$r$};
+
+  % --- Winkel-Bogen phi ---
+  \draw[->, >=stealth, blue!70!black, thick]
+      (0.7cm, 0) arc[start angle=0, end angle=63, radius=0.7cm];
+  \node[blue!70!black, font=\small] at (28:0.95cm) {$\varphi$};
+
+  % --- Koordinatenachsen ---
+  \draw[->, >=stealth, gray!70, thin] (-3.7,0) -- (3.9,0)
+      node[right, font=\footnotesize, gray!80] {$x$};
+  \draw[->, >=stealth, gray!70, thin] (0,-3.7) -- (0,3.9)
+      node[above, font=\footnotesize, gray!80] {$y$};
+
+  % --- Hilfslinie: Horizontalprojektion (für phi) ---
+  \draw[blue!30, thin, dashed] (0,0) -- (0.7cm, 0);
+
+  % --- Punkt P Beschriftung ---
+  \node[above right, font=\small, red!80!black] at (P) {$P = (p_x,\, p_y)$};
+
+  % --- Mittelpunkt ---
+  \fill (0,0) circle (1.8pt);
+  \node[below left, font=\footnotesize] at (0,0) {$c$};
+
+\end{tikzpicture}
+\caption{Geometrische Grundlage der Score-Berechnung im normierten
+Scheibenkoordinatensystem. Der Auftreffpunkt~$P$ wird durch den
+Polarwinkel~$\varphi$ und den Radius~$r$ eindeutig einem Winkelsegment
+sowie einer radialen Wertungszone zugeordnet.}
+\label{fig:score_berechnung}
+\end{figure}
 
 \section{Machine Learning Ansatz}
 
