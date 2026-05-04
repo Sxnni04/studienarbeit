@@ -1,12 +1,8 @@
 \chapter{Methodik}
 
-In diesem Kapitel werden die Funktionsweisen der beiden Ansätze - algorischmisch und KI-basiert - detailliert beschrieben.
+\label{ch:methodik}
 
-\section{Algorithmischer Ansatz}
-
-Der algorithmische Ansatz verfolgt das Ziel, eine Dartscheibe in einem mobilen Foto vollständig zu lokalisieren, zu entzerren und ihre Felder geometrisch zu segmentieren -- ohne den Einsatz lernbasierter Verfahren. Grundvoraussetzung für diesen Ansatz ist, dass die Dartscheibe im Bild als Kreis dargestellt ist. Damit ist die Perspektivische Korrektur hier nicht berücksichtigt.
-
-Die Abbildung \ref{fig:algo_pipe} veranschaulicht die algorithmische Pipeline. Diese setzt sich aus folgenden aufeinanderfolgenden Schritten zusammen: Vorverarbeitung, Erkennung der Dartscheibe im Bild, perspektivische Korrektur, Lokalisierung der Segmentringe, Lokalisierung der Segmentlinien und abschließende Berechnung des Scores. Die dargestellten Pfeile geben dabei die verbindliche Reihenfolge vor, in der die einzelnen Schritte zwingend durchlaufen werden müssen.
+In diesem Kapitel werden die Funktionsweisen des algorithmischen und des KI-basierten Ansatzes detailliert beschrieben. Die zugrunde liegende Bildverarbeitungspipeline ist in Abbildung \ref{fig:algo_pipe} dargestellt und gliedert sich in die folgenden aufeinanderfolgenden Schritte: Vorverarbeitung, Erkennung der Dartscheibe, perspektivische Korrektur, Lokalisierung der Segmentringe, Lokalisierung der Segmentlinien sowie die abschließende Berechnung des Scores. Die Reihenfolge der Schritte ist dabei verbindlich und muss zwingend eingehalten werden.
 
 \begin{figure}[H]
     \centering
@@ -15,75 +11,82 @@ Die Abbildung \ref{fig:algo_pipe} veranschaulicht die algorithmische Pipeline. D
     \label{fig:algo_pipe}
 \end{figure}
 
+Darüber hinaus werden die Vergleichskriterien beider Ansätze erläutert sowie die Vorgehensweise beim Vergleich beschrieben.
+
+\newpage
+
+\section{Algorithmischer Ansatz}
+
+Der entwickelte algorithmische Ansatz dient der vollständigen Lokalisierung und geometrischen Segmentierung einer Dartscheibe in mobilen Bildaufnahmen ohne den Einsatz lernbasierter Verfahren. Dabei wird vorausgesetzt, dass die Dartscheibe in der Aufnahme näherungsweise frontal erfasst wird und somit als Kreis erscheint. Perspektivisch bedingte Verzerrungen sowie deren Korrektur konnten in diesem Ansatz nicht berücksichtigt werden.
+
 \subsection{Vorverarbeitung}
 
-Als erster Schritt der Pipeline wird das Eingangsfoto, das auf eine Auflösung von 3000 x 4000 Pixeln festgelegt wurde, vorverarbeitet und für die weitere Verarbeitung aufbereitet. Hierzu wird das Bild vom RGB- in das Graustufenformat konvertiert. Zur Reduktion von Bildrauschen kommt ein Median-Filter mit einer Kernelgröße von $k = 11$ zum Einsatz. Im Vergleich zu anderen Filtern, beispielsweise dem Gaußschen Weichzeichner, eignet sich der Median-Filter besser für die Vorverarbeitung von Dartscheibenaufnahmen, da er Salz- und Pfeffer-Rauschen effektiv unterdrückt, ohne die für die nachfolgende Kantendetektion relevanten Übergänge zwischen den Feldbereichen zu verwischen \cite{opencv_blur}.
+Als erster Schritt der Pipeline wird das Eingangsfoto, das auf eine Auflösung von 3000 x 4000 Pixeln festgelegt wurde, vorverarbeitet und für die weitere Verarbeitung aufbereitet. Hierzu wird das Bild vom RGB- in das Graustufenformat konvertiert. Zur Reduktion von Bildrauschen kommt ein Median-Filter mit einer Kernelgröße von $k = 11$ zum Einsatz. 
 
-\subsection{Erkennung der Dartscheibe im Bild}
+\subsection{Erkennung der Dartscheibe}
 
-Die Lokalisierung der Dartscheibe erfolgt mittels der Hough-Kreiserkennung,
-die auf dem vorverarbeiteten Graustufenbild operiert. Da die Scheibengröße
-im Bild je nach Aufnahmeabstand variiert, werden der minimale und maximale
-Suchradius dynamisch in Abhängigkeit der kürzeren Bildkante berechnet.
-Ausgehend von einem initialen Wertebereich von 70\,\% bis 75\,\% der
-Bildkantenlänge wird der Suchbereich iterativ um jeweils 5\,\% reduziert,
-sofern keine Kreishypothese gefunden wurde. Dieses Vorgehen stellt sicher,
-dass auch bei ungewöhnlichen Bildproportionen oder größeren Aufnahmeabständen
-eine Erkennung möglich bleibt, solange die Scheibe einen Mindestanteil
-von ca. 10\,\% der Bildbreite einnimmt.
+Die Lokalisierung der Dartscheibe erfolgt mittels der Hough-Kreiserkennung, die auf dem vorverarbeiteten Graustufenbild operiert. 
 
-Die Hough-Transformation wird mit einem Akkumulatorschwellwert von
-$\mathtt{param2} = 200$ und einem Kantenschwellwert von
-$\mathtt{param1} = 300$ konfiguriert, die empirisch ermittelt wurden.
-Da viele Dartscheiben mit einem äußeren Schutzring versehen sind, dessen
-Radius den der eigentlichen Scheibe übersteigt, wird bei mehreren
-erkannten Kreishypothesen jene mit dem kleinsten Radius als Scheibenrand
-selektiert.
+Der minimale und maximale Suchradius werden dynamisch in Abhängigkeit der kürzeren Bildkante berechnet. Ausgehend von einem initialen Wertebereich von 70\,\% bis 75\,\% der Bildkantenlänge wird der Suchbereich iterativ um jeweils 5\,\% reduziert, sofern keine Kreishypothese gefunden wurde. Die Methode wird mit einem Kantenschwellwert von $\mathtt{param1} = 300$, einem Akkumulatorschwellwert von $\mathtt{param2} = 200$, einem minimalen Kreismittelabstand von $\mathtt{minDist} = 0{,}8 \cdot h$ -- wobei $h$ die Bildhöhe bezeichnet -- sowie einem inversen Auflösungsverhältnis von $\mathtt{dp} = 1{,}5$ konfiguriert. 
+
+Die Ausgabe des Verfahrens ist ein erkannter Kreis, beschrieben durch Mittelpunkt $(a, b)$ und Radius~$r$, welcher dem Rand der Dartscheibe entspricht.
+
+\section{Machine Learning Ansatz}
+
+\label{sec:ml-ansatz}
+
+\subsection{Erkennung der Dartscheibe}
+
+\subsection{Nachverarbeitung der Maske}
+
+\section{Gemeinsame Verarbeitungsschritte}
+
+Nach erfolgreicher Detektion der Dartscheibe im Bild werden, unabhängig vom jeweils verwendeten Verfahren, identische nachgelagerte Verarbeitungsschritte durchgeführt. Als Voraussetzung für diese weiteren Schritte wird die erkannte Dartscheibe in einer standardisierten geometrischen Form repräsentiert. Im Fall einer kreisförmigen Approximation erfolgt die Beschreibung durch den Mittelpunkt mit den Koordinaten $x$ und $y$ sowie den Radius $r$. Bei einer elliptischen Approximation wird die Dartscheibe durch den Mittelpunkt (x,y), die Längen der Haupt- und Nebenachse (major bzw. minor axis) sowie den Rotationswinkel der Ellipse (angle) beschrieben.
 
 \subsection{Perspektivische Korrektur und Normalisierung}
 
 \label{sec:homography}
 
-Nach der Lokalisierung der Dartscheibe wird das Eingabebild mittels
-einer Homographie auf ein einheitliches quadratisches Format von
-$1024 \times 1024$ Pixeln transformiert. Ziel dieser Normalisierung
-ist es, die anschließende geometrische Feldsegmentierung unabhängig
-von Aufnahmeabstand und Bildauflösung zu gestalten.
+Nach der Lokalisierung der Dartscheibe wird das Eingabebild mittels einer Homographie auf ein einheitliches quadratisches Format von $1024 \times 1024$ Pixeln transformiert. Dafür sind mindestens vier Referenzpunkte nötig, die sich abhängig davon berechnen, ob die erkannte Dartscheibe als Kreis oder Ellipse vorliegt.
 
-Die Homographie wird auf Basis von vier Korrespondenzpunkten berechnet.
-Als Quellpunkte dienen die vier Ecken des achsenparallelen Begrenzungsrahmens
-(\textit{Bounding Box}) des erkannten Kreises, die sich aus Mittelpunkt
-$(c_x, c_y)$ und Radius $r$ wie folgt ergeben:
+\textbf{Kreisförmige Spielfläche:} Wird die Dartscheibe als Kreis mit Mittelpunkt $(c_x, c_y)$ und Radius $r$ beschrieben, so werden die vier Quellpunkte als Ecken des umbeschriebenen achsenparallelen Quadrats gewählt:
 
 \begin{equation}
-    P_{\text{src}} = \begin{pmatrix}
-        c_x - r & c_y - r \\
-        c_x + r & c_y - r \\
-        c_x + r & c_y + r \\
-        c_x - r & c_y + r
-    \end{pmatrix}
+P_1 = \begin{pmatrix} c_x - r \\ c_y - r \end{pmatrix}, \quad
+P_2 = \begin{pmatrix} c_x + r \\ c_y - r \end{pmatrix}, \quad
+P_3 = \begin{pmatrix} c_x + r \\ c_y + r \end{pmatrix}, \quad
+P_4 = \begin{pmatrix} c_x - r \\ c_y + r \end{pmatrix}
 \end{equation}
 
-Die Zielpunkte $P_{\text{dst}}$ entsprechen den vier Ecken des
-$(1024 \times 1024)$-Ausgabebildes. Die Homographiematrix $H$ wird
-mittels \texttt{cv2.getPerspectiveTransform} aus diesen Punktpaaren
-berechnet und anschließend per \texttt{cv2.warpPerspective} auf das
-Originalbild angewendet.
+Die Punkte sind symmetrisch um den Mittelpunkt verteilt und spannen ein Quadrat auf, dessen Seitenlänge dem Durchmesser $2r$ des Kreises entspricht.
 
-Dieser Ansatz setzt voraus, dass die Kamera annähernd frontal auf die
-Dartscheibe gerichtet ist. Da die Quellpunkte aus der achsenparallelen
-Begrenzungsbox des erkannten Kreises abgeleitet werden, enthält die
-berechnete Homographie keine Information über die tatsächliche räumliche
-Orientierung der Scheibe. Bei stärkerer perspektivischer Verzerrung
-führt dies zu einer unvollständigen Entzerrung, was die Zuverlässigkeit
-der nachgelagerten Feldsegmentierung beeinträchtigt. Diese Einschränkung
-motiviert den in Kapitel~\ref{sec:ml-ansatz} beschriebenen
-Machine-Learning-Ansatz, der eine robustere Grundlage für die
-perspektivische Korrektur bietet.
+\textbf{Elliptische Spielfläche:} 
 
-% Dieser Abschnitt komplett in Design übernehmen
+% Liegt die Dartscheibe als Ellipse vor, ist diese durch ihren Mittelpunkt $(c_x, c_y)$, die Hauptachse $MA$, die Nebenachse $ma$ sowie einen Rotationswinkel $\alpha$ definiert. Daraus ergeben sich die Halbachsen $a = MA/2$ und $b = ma/2$. Um die geometrische Ausrichtung der Ellipse zu berücksichtigen, wird der Winkel $\alpha$ in das Bogenmaß $\theta$ umgerechnet und die zugehörige 2D-Rotationsmatrix gebildet:
 
-Auf das transformierte Bild wird erneut der bereits beschriebene Graustufenfilter angewendet, um die Erkennung der Segmentringe- und Linien zu ermöglichen. 
+% \begin{equation}
+% R(\theta) = \begin{pmatrix} \cos\theta & -\sin\theta \\ \sin\theta & \cos\theta \end{pmatrix}
+% \end{equation}
+
+% In einem lokalen Koordinatensyste, in welchem der Mittelpunkt der Ellipse den Ursprung bildet, können die vier Ecken des umschreibenden Rechtecks folgendermaßen definiert werden:
+
+% \begin{equation}
+% \mathbf{p}_1^{\text{lok}} = \begin{pmatrix} -a \\ -b \end{pmatrix}, \quad
+% \mathbf{p}_2^{\text{lok}} = \begin{pmatrix}  a \\ -b \end{pmatrix}, \quad
+% \mathbf{p}_3^{\text{lok}} = \begin{pmatrix}  a \\  b \end{pmatrix}, \quad
+% \mathbf{p}_4^{\text{lok}} = \begin{pmatrix} -a \\  b \end{pmatrix}
+% \end{equation}
+
+% Anschließend werden diese Punkte durch die Rotationsmatrix $R(\theta)$ in die Ausrichtung der Ellipse überführt und um den Mittelpunkt $(c_x, c_y)$ in das globale Bildkoordinatensystem verschoben:
+
+% \begin{equation}
+% \mathbf{p}_i = R(\theta) \cdot \mathbf{p}_i^{\text{lok}} + \begin{pmatrix} c_x \\ c_y \end{pmatrix},
+% \qquad i \in \{1, 2, 3, 4\}
+% \end{equation}
+
+% Die so berechneten Punkte beschreiben die Ecken des rotierten, der Ellipse umbeschriebenen Rechtecks im Bildkoordinatensystem. Diese vier Punkte dienen anschließend als Quellpunkte für die Berechnung der Homographiematrix, mit der die perspektivische Verzerrung der Spielfläche korrigiert wird.
+
+% To Do: Ellipsen - Transformation implementieren. Problem: durch die oben beschriebene Normalisierung wird zwar das Rechteck der Ellipse Normalisiert aber nicht der Dartscheibe. Die 20 könnte als irgendwo einfach sein. Idee: Einmal austesten wo die 20 ist und dann einfach die Scheibe weiter drehen.
 
 \subsection{Lokalisierung der Ringe}
 
@@ -137,12 +140,8 @@ aufweist:
 \end{equation}
 
 \noindent
-wobei $\mathcal{C}$ die Menge aller erkannten Kreishypothesen im
-jeweiligen Suchbereich bezeichnet. Wird für einen Ring keine
-Hypothese gefunden, wird dieser übersprungen und in der
-nachgelagerten Feldsegmentierung als nicht erkannt behandelt.
 
-% Fehlende Beschreibung was bei Fehlern passiert. Ich kann näher auf die einzelnen Kriterien eingehen (Robustheit, Geschwindigkeit etc.)
+wobei $\mathcal{C}$ die Menge aller erkannten Kreishypothesen im jeweiligen Suchbereich bezeichnet. Wird für einen Ring keine gültige Hypothese gefunden, so wird die weitere Verarbeitung abgebrochen, da eine vollständige Segmentierung der Dartscheibe die erfolgreiche Erkennung sämtlicher Ringe voraussetzt.
 
 \subsection{Lokalisierung der Segmentlinien}
 
@@ -304,30 +303,24 @@ sowie einer radialen Wertungszone zugeordnet.}
 \label{fig:score_berechnung}
 \end{figure}
 
-\section{Machine Learning Ansatz}
-
-\label{sec:ml-ansatz}
-
-Inhalte dieses Kapitels:
-
-\begin{itemize}
-    \item Vergleich zwichen U-Net, YOLOv11 und Mask R-CNN (Welcehs Modell am geeignetsten)
-    \item Diskurs: Segmentierung des gesamten Boards mithilfe eines Modells 
-\end{itemize}
-
-Erweiterung des Algorithmischen Ansatzes um die Erkennung der Dartscheibe, um perspektivische Korrektur der Dartscheibe hinzubekommen.
-
-Oder folgender Ansatz:
-
-\begin{itemize}
-    \item Erkennung der Scheibe
-    \item perspektivische Korrektur
-    \item Erkennung der Linien (und Kreise) mit jeweils anderem Modell
-    \item Berechnung des Scores mithilfe der gleichen Methode wie im algorithmischen Ansatz.
-\end{itemize}
-
 \section{Evaluation}
 
-Hier Beschreibe ich die Funktionsweise meines Evaluations-Frameworks. Ich muss hier möglichst genau beschreiben, wie der Vergleich stattfindet, welche Kriterien ich wähle und wie ich sie messe. Das komplette Evaluationsframework eben.
+Im Folgenden wird festgelegt, wie die in der Leitfrage formulierten Vergleichskriterien im Rahmen dieser Arbeit konkret gemessen werden.
 
-Wie die einzelnen Ansätze dann abschneiden kommt in den Ergebnisse Part.
+\subsubsection{Erkennungsgenauigkeit}
+
+Die Erkennungsgenauigkeit beider Ansätze wird anhand der mittleren IoU (mean IoU, mIoU) über alle Testbilder bewertet. Zusätzlich wird die Erkennungsrate als Anteil der Bilder ausgewiesen, bei denen ein IoU-Schwellwert von $\text{IoU} \geq 0{,}5$ erreicht wird \cite{everingham2010pascal}. Als Referenz dienen Binärmasken, die durch manuelle Annotation mithilfe des Polygon-Werkzeugs der Annotationsplattform \cite{roboflow2024} erstellt wurden und die Kontur der Dartscheibe näherungsweise beschreiben. Da beide Ansätze dieselbe nachgelagerte Segmentierungs- und Punktberechnungslogik verwenden, sind Unterschiede in der mIoU ausschließlich auf die jeweilige Lokalisierungsmethode zurückzuführen, was einen isolierten Vergleich beider Ansätze unter sonst identischen Bedingungen ermöglicht.
+
+\subsubsection{Robustheit gegenüger Aufnahmebedingungen}
+
+Zur Bewertung der Robustheit wird der Testdatensatz in Untergruppen eingeteilt, die jeweils eine spezifische Störbedingung repräsentieren. Untersucht werden Lichtverhältnisse (Über- und Unterbelichtung), Perspektivverzerrung (flache Aufnahmewinkel) sowie Skalierung (variierender Bildausschnitt). Die mIoU wird pro Untergruppe separat ausgewertet, um zu identifizieren, unter welchen Bedingungen die jeweilige Methode am stärksten beeinträchtigt wird \cite{szeliski_computer_2022}.
+
+\subsubsection{Verarbeitungsgeschwindigkeit}
+
+Die Verarbeitungsgeschwindigkeit wird als mittlere Inferenzzeit in Millisekunden pro Bild bestimmt und umfasst die vollständige Verarbeitungspipeline vom Eingabebild bis zur Erzeugung der resultierenden Maske. Die Experimente wurden auf einem Acer Aspire-13 Laptop mit einem Intel Core i5-1235U Prozessor der 12. Generation, 32 GB Arbeitsspeicher sowie dem Betriebssystem Windows-11 durchgeführt. 
+
+Die Ausführung erfolgte CPU-basiert unter Verwendung von Python~3.11 und PyTorch~2.10. Zur Reduktion zufälliger Schwankungen wird für jedes Bild der Mittelwert über mindestens 50 Wiederholungen berechnet.
+
+\subsubsection{Implementierungsaufwand}
+
+Der Implementierungsaufwand wird qualitativ bewertet und umfasst den Aufwand zur Datenbeschaffung und -annotation, den Trainingsaufwand des U-Net-Modells sowie den Integrationsaufwand in eine mobile Anwendung. Da dieser Aspekt einer quantitativen Messung nicht zugänglich ist, wird er anhand einer strukturierten Beschreibung der jeweiligen Entwicklungsschritte dokumentiert und verglichen.

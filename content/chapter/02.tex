@@ -2,7 +2,7 @@
 
 \section{Canny-Kantendetektion}
 
-Der Canny-Kantendetektor, vorgestellt von John Canny 1986 \cite{canny_computational_1986}, ist ein mehrstufiger Algorithmus, der auf einer formalen Definition der Zielsetzung eines idealen Kantendetektors basiert. Er formulierte die Kantenerkennung als ein Optimierungsproblem. Er definierte drei mathematische Kriterien, die ein optimaler Detektor für stufenförmige Kanten erfüllen muss, und leitete daraus eine spezifische Operatorform ab. Der Algorithmus ist daher als eine direkte technische Umsetzung dieser Kriterien zu verstehen.
+Der Canny-Kantendetektor, erstmals von John Canny im Jahr 1986 vorgestellt \cite{canny_computational_1986}, stellt einen mehrstufigen Algorithmus dar, dessen Grundlage eine formale mathematische Definition der Zielsetzung eines idealen Kantendetektors bildet. Canny formulierte die Kantenerkennung als Optimierungsproblem und leitete drei mathematische Kriterien ab, denen ein optimaler Detektor für stufenförmige Kanten genügen muss. Aus diesen Kriterien wurde eine spezifische Operatorform hergeleitet, sodass der Algorithmus als deren direkte technische Umsetzung zu verstehen ist.
 
 \begin{enumerate}
   \item \textbf{Gute Erkennungrate:}  Die Fehlerwahrscheinlichkeit, echte Kanten zu übersehen oder fälschlicherweise Nicht-Kanten zu markieren, muss minimiert werden.
@@ -10,19 +10,27 @@ Der Canny-Kantendetektor, vorgestellt von John Canny 1986 \cite{canny_computatio
   \item \textbf{Eindeuige Antwort:} Der Detektor darf auf eine einzelne Kante nicht mit mehreren lokalen Maxima antworten.
 \end{enumerate}
 
-Der Canny-Kantendetektor arbeitet in vier Schritten. Zunächst wird das Eingabebild durch Faltung mit einem zweidimensionalen Gauß-Filter geglättet, um hochfrequentes Rauschen zu unterdrücken. Die Standardabweichung $\sigma$ des Filters ist dabei der zentrale freie Parameter: Ein größeres $\sigma$ führt zu robusterer Erkennung auf Kosten der Lokalisierungsgenauigkeit feiner Kantenstrukturen. Im zweiten Schritt wird der Gradient des geglätteten Bildes durch Faltung mit der ersten Ableitung der Gauß-Funktion berechnet, woraus für jeden Pixel die Kantenstärke und Kantenrichtung bestimmt werden. Der dritte Schritt, die Nicht-Maxima-Unterdrückung (Non-Maximum Suppression), dünnt die Kantenantworten auf eine Pixelbreite aus, indem nur lokale Maxima entlang der Gradientenrichtung erhalten bleiben. Abschließend erfolgt eine Klassifikation mittels Hysterese-Schwellwertverfahren mit zwei Schwellwerten $T_1$ und $T_2$. Pixel oberhalb von $T_1$ gelten als sichere Kanten, Pixel zwischen $T_2$ und $T_1$ werden nur dann akzeptiert, wenn sie mit einer sicheren Kante räumlich verbunden sind. Dies verhindert das als \textit{Streaking} bekannte Abreißen von Kantenzügen durch lokale Schwankungen der Kantenstärke.
+Der Canny-Kantendetektor arbeitet in vier aufeinanderfolgenden Schritten. Zunächst wird das Eingabebild durch Faltung mit einem Gauß-Filter geglättet, um hochfrequentes Rauschen zu unterdrücken, wobei die Standardabweichung $\sigma$ als zentraler Parameter die Robustheit gegenüber der Lokalisierungsgenauigkeit abwägt. Anschließend werden für jeden Pixel Kantenstärke und Kantenrichtung aus dem Gradienten des geglätteten Bildes berechnet, bevor im dritten Schritt die Nicht-Maxima-Unterdrückung die Kantenantworten durch Beibehaltung ausschließlich lokaler Maxima entlang der
+Gradientenrichtung auf eine Pixelbreite reduziert.
+
+Den abschließenden und für die Qualität des Ergebnisses entscheidenden Schritt bildet die Klassifikation mittels Hysterese-Schwellwertverfahren. Dieses verwendet zwei Schwellwerte $T_1$ und $T_2$, wobei Pixel oberhalb von $T_1$ als sichere Kanten klassifiziert werden, während Pixel im Intervall $[T_2,\, T_1]$ nur dann akzeptiert werden, wenn sie räumlich mit einer sicheren Kante verbunden sind. Durch diesen zweistufigen Mechanismus wird das als \textit{Streaking} bekannte Abreißen von Kantenzügen infolge lokaler Schwankungen der Kantenstärke zuverlässig verhindert.
 
 \section{Hough Transformation}
+
+In diesem Kapitel werden die Grundlagen der \ac{HT} vermittelt. Dabei wird zuerst die Funktionsweise der Erkennung von Linien und anschließend die Erkennung von Kreisen erklärt.
+
 \label{Hough-chapter}
+
+\subsection{Erkennung von Linien}
 
 Die \ac{HT} ist ein grundlegendes Verfahren der digitalen Bildverarbeitung und des maschinellen Sehens, das der Erkennung geometrischer Formen und Muster in Bilddaten dient. Sie wurde ursprünglich von Paul Hough im Jahr 1962 in einem Patent zur Erkennung komplexer Muster in Blasenkammeraufnahmen vorgestellt. \cite{illingworth_survey_1988,hough_method_1962}.
 
 Die Funktionsweise der \ac{HT} veranschaulicht die Abbildung \ref{Hough Prinzip}. Dabei werden Punkte aus dem ursprünglichen Bildraum in den Parameterraum transformiert. Der Bildraum ist im klassischen Sinne der Raum in dem Punkte in x und y Koordinaten angegeben werden. Der Parameterraum bezieht sich hingegen auf die beiden Parameter m und c einer Geraden. Eine wichtige Eigenschaft hierbei ist, dass Punkte im Bildraum durch die Transformation zu Geraden im Parameterraum werden. Der Schnittpunkt der Geraden im Parameterraum gibt die Parameter m und c der Geraden an, durch die die jeweiligen Punte im Bildraum verbunden werden. \cite{illingworth_survey_1988}
 
-Um die \ac{HT} berechnen zu können, wird der Parameterraum als ein mehrdimensionales Array dargestellt, wobei jedes Element hochgezählt wird, sobald eine Gerade dadurch verläuft. Die Erkennung von Hochpunkten ist im Parameterraum einfacher und rechnerisch weniger fordernd als im Bildraum. \cite{illingworth_survey_1988} Die Tabelle \ref{Accumulator-Array} dient dafür als Veranschaulichung.
+Um die \ac{HT} berechnen zu können, wird der Parameterraum als ein mehrdimensionales Array, das sogenannte Akkumulator-Array, dargestellt, wobei jedes Element hochgezählt wird, sobald eine Gerade dadurch verläuft. Die Erkennung von Hochpunkten ist im Parameterraum einfacher und rechnerisch weniger fordernd als im Bildraum. \cite{illingworth_survey_1988} Die Tabelle \ref{Accumulator-Array} dient dafür als Veranschaulichung.
 
 
-\begin{figure}[h]
+\begin{figure}[H]
 \centering
 \begin{subfigure}{0.4\textwidth}
 \centering
@@ -71,7 +79,7 @@ Um die \ac{HT} berechnen zu können, wird der Parameterraum als ein mehrdimensio
 \label{Hough Prinzip}
 \end{figure}
 
-\begin{table}[h]
+\begin{table}[H]
 \centering
 \renewcommand{\arraystretch}{1.3}
 \setlength{\tabcolsep}{8pt}
@@ -105,7 +113,7 @@ Für jeden Punkt ($x_0, y_0$) kann denmnach eine Menge von Geraden durch folgend
 \rho = x_0 * cos(\theta) + _0 * sin(\theta)
 \]
 
-\begin{figure}[h]
+\begin{figure}[H]
 \centering
 \begin{tikzpicture}
   \begin{axis}[
@@ -140,24 +148,94 @@ Für jeden Punkt ($x_0, y_0$) kann denmnach eine Menge von Geraden durch folgend
 \label{Polarkoordinaten}
 \end{figure}
 
+\subsection{Erkennung von Kreisen}
+
+Die Erkennung von Kreisen basiert auf demselben Prinzip wie die zuvor beschriebene Linienerkennung, jedoch wird anstelle der Geradengleichung die Kreisgleichung 
+\[
+(x_i - a)^2 + (y_i - b)^2 = r^2
+\]
+
+als parametrische Darstellung verwendet, wobei $a$ und $b$ die Koordinaten des Kreismittelpunkts und $r$ den Radius bezeichnen. $x_i$ und $y_i$ sind die Koordinaten eines auf dem Kreis liegenden Punktes $P_i$. Zur Reduktion der Problemkomplexität wird der Radius $r$ zunächst als bekannt vorausgesetzt, sodass der zweidimensionale Parameterraum ausschließlich durch die Mittelpunktkoordinaten $a$ und $b$ aufgespannt wird. Wie in Abbildung~\ref{fig:hough-transformation} dargestellt, wird jeder Bildpunkt im Parameterraum als Kreis repräsentiert, dessen Schnittpunkt mit den übrigen transformierten Punkten den gesuchten Kreismittelpunkt bestimmt. \cite{illingworth_survey_1988}
+
+\begin{figure}[H]
+  \centering
+
+  \begin{tikzpicture}[scale=1.2]
+
+    \draw[->, thick] (-0.3, 0) -- (3.5, 0) node[right] {$x$};
+    \draw[->, thick] (0, -0.3) -- (0, 3.5) node[above] {$y$};
+
+    \draw[dotted, gray, thick] (1.7, 1.7) circle (1.1cm);
+
+    \foreach \angle in {20, 55, 100, 150, 195, 230, 275, 315, 350} {
+      \fill[blue!70!white] ($(1.7,1.7) + (\angle:1.1)$) circle (4pt);
+    }
+
+    \begin{scope}[xshift=5.5cm]
+
+      \draw[->, thick] (-0.3, 0) -- (3.5, 0) node[right] {$a$};
+      \draw[->, thick] (0, -0.3) -- (0, 3.5) node[above] {$b$};
+
+      \foreach \angle in {0, 40, 80, 120, 160, 200, 240, 280, 320} {
+        \pgfmathsetmacro{\mx}{1.7 + 0.85*cos(\angle)}
+        \pgfmathsetmacro{\my}{1.7 + 0.85*sin(\angle)}
+        \draw[blue!60!white, thick] (\mx, \my) circle (0.85cm);
+      }
+
+    \end{scope}
+
+  \end{tikzpicture}
+
+  \caption{Hough-Transformation zur Kreiserkennung. \textit{Links:} Datenpunkte im $(x,y)$-Bildraum liegen auf einem gemeinsamen Kreis. \textit{Rechts:} Jeder Datenpunkt erzeugt im Parameterraum $(a,b)$ einen eigenen Kreis}
+  \label{fig:hough-transformation}
+
+\end{figure}
+
+
 \section{Homographie}
 
-Eine Homographie, auch projektive Transformation, ist eine bijektive Abbildung, welche geradlinien erhält. Sie beschreibt die mathematische Beziehung zwischen zwei Bildern derselben planaren Oberfläche oder zwischen zwei Bildern, die von derselben Kamera aus verschiedenen Rotationswinkeln aufgenommen wurden.
+Eine Homographie, auch als projektive Transformation bezeichnet, ist eine bijektive Abbildung, welche die Geradlinigkeit von Punkten erhält. Sie beschreibt die mathematische Beziehung zwischen zwei Bildern derselben planaren Oberfläche oder 
+zwischen zwei Aufnahmen, die von derselben Kamera unter verschiedenen Rotationswinkeln aufgenommen wurden \cite{szeliski_computer_2022}.
 
-Die Homographie wird durch eine 3x3 Matrix H in homogenen Koordinaten dargestellt. Für einen Bildpunkt x im Ausgangbild gilt der korrespondierende Punkt x' im Zielbild. \cite{opencv, szeliski_computer_2022}
+Die Transformation wird durch eine $3 \times 3$-Matrix $H$ in homogenen Koordinaten repräsentiert. Für einen Bildpunkt $x$ im Ausgangsbild ergibt sich der korrespondierende Punkt $x'$ im Zielbild gemäß
 
-\[ x' = H * x\]
+\[
+\begin{bmatrix} x' \\ y' \\ w' \end{bmatrix}
+=
+\begin{bmatrix} h_{11} & h_{12} & h_{13} \\ h_{21} & h_{22} & h_{23} \\ 
+h_{31} & h_{32} & h_{33} \end{bmatrix}
+\begin{bmatrix} x \\ y \\ w \end{bmatrix}.
+\]
 
-\section{Homogene Koordinaten}
+Obwohl $H$ neun Einträge besitzt, ist sie lediglich bis auf einen Skalierungsfaktor definiert, sodass sie effektiv über acht Freiheitsgrade verfügt \cite{opencv}. Da jede Punktkorrespondenz zwei Gleichungen liefert, sind zur eindeutigen Bestimmung von $H$ mindestens vier nicht-kollineare Punktkorrespondenzen erforderlich \cite{szeliski_computer_2022}.
 
-Homogene Koordinaten sind eine Darstellung von Punkten im n-dimensionalen Raum durch (n+1)-dimensionale Vektoren, wobei alle skalaren Vielfachen desselben Vektors als äquivalent betrachtet werden.
+In der Praxis wird $H$ mittels des Direct Linear Transform (DLT)-Verfahrens geschätzt. Um die Robustheit gegenüber Ausreißern in den Korrespondenzen zu gewährleisten, wird DLT typischerweise in Kombination mit dem RANSAC-Algorithmus eingesetzt \cite{opencv}.
 
-Formal gilt: Ein Punkt (u, v) in der kartesischen Ebene $\mathbb{R}^2$ wird in homogenen Koordinaten als Tripel (x, y, w) dargestellt, wobei gilt:
-
-\[ (u, v) \longleftrightarrow (x, y, w) \quad \text{mit} \quad u = \frac{x}{w}, \; v = \frac{y}{w}, \; w \neq 0 \]
-
-\section{Convolutional Neural Networks (CNNs)}
+Die Homographie findet in zahlreichen Bereichen der Computer Vision Anwendung, darunter die Perspektivkorrektur, das Zusammensetzen von Panoramabildern sowie die Überlagerung virtueller Objekte in Augmented-Reality-Systemen \cite{szeliski_computer_2022, opencv}.
 
 \section{U-Net Architektur}
 
 \section{Evaluationsmetriken}
+
+\subsection{Inferenzzeit}
+
+Die Inferenzzeit bezeichnet im Kontext neuronaler Netze die Zeitspanne, die ein bereits trainiertes Modell benötigt, um aus neuen Eingabedaten eine Vorhersage zu erzeugen. Im Gegensatz zur Trainingsphase werden dabei keine Modellparameter angepasst; vielmehr erfolgt ausschließlich die Anwendung des trainierten Modells auf unbekannte Daten \cite{Goodfellow-et-al-2016}.
+
+Für Objekterkennungssysteme beschreibt die Inferenzzeit die Dauer zwischen der Bereitstellung eines Eingabebildes und der Ausgabe der Detektionsergebnisse. Sie stellt insbesondere bei zeitkritischen Anwendungen eine wesentliche Leistungskennzahl dar. Formal lässt sich die Inferenzzeit $T_{\text{inf}}$ definieren als
+
+\begin{equation}
+T_{\text{inf}} = t_{\text{end}} - t_{\text{start}}
+\end{equation}
+
+wobei $t_{\text{start}}$ den Beginn der Verarbeitung und $t_{\text{end}}$ den Zeitpunkt der Ergebnisbereitstellung beschreibt.
+
+\subsection{Intersection over Union}
+
+Zur Bewertung der Segmentierungsqualität bzw. Erkennungsgenauigkeit wird in der Computer-Vision-Literatur die Intersection over Union (IoU), auch als Jaccard-Index bezeichnet, als Standardmetrik eingesetzt \cite{everingham2010pascal}. Sie setzt die Schnittmenge der vom System erzeugten Maske $M_{\text{pred}}$ und der Ground-Truth-Maske $M_{\text{gt}}$ ins Verhältnis zu ihrer Vereinigungsmenge:
+
+\[
+\text{IoU} = \frac{|M_{\text{pred}} \cap M_{\text{gt}}|}
+                  {|M_{\text{pred}} \cup M_{\text{gt}}|}
+\]
+
+Der Wertebereich liegt zwischen 0 (keine Überlappung) und 1 (vollständige Übereinstimmung). Nach dem PASCAL-VOC-Standard gilt eine Erkennung ab einem Schwellwert von $\text{IoU} \geq 0{,}5$ als korrekt \cite{everingham2010pascal}.

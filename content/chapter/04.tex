@@ -1,7 +1,45 @@
 \chapter{Design und Implementierung}
 
-Hier gehe ich näher auf die Methodik ein. Warum habe ich etwas so und nicht so gemacht. Was wurde verworfen, welche Alternativen hab es? Beschreibung von Parametern und Abwägungen.
+Dieses Kapitel beschreibt die konkrete Umsetzung der in Kapitel \ref{ch:methodik} vorgestellten Ansätze. Im Vordergrund stehen dabei die getroffenen Designentscheidungen sowie die Begründung der gewählten Parameter und Implementierungsstrategien. Darüber hinaus werden verworfene Alternativen und Fehlschläge dokumentiert, um die Entwicklung der finalen Lösung nachvollziehbar zu machen.
+
+Die Implementierung gliedert sich in drei Teile: den algorithmischen Ansatz auf Basis von Canny-Kantenerkennung und Hough-Transformation, den KI-basierten Ansatz mittels U-Net sowie die gemeinsamen Verarbeitungsschritte zur Feldsegmentierung und Punktberechnung, welche beiden Pipelines zugrunde liegen.
 
 \section{Algorithmischer Ansatz}
 
+\subsection{Vorverarbeitung}
+
+Als erster Verarbeitungsschritt wird das Eingabebild mit einem Median-Filter geglättet, um Rauschen zu reduzieren. Der Median-Filter wurde dem Gaußschen Weichzeichner vorgezogen, da er Salz-und-Pfeffer-Rauschen effektiv unterdrückt 
+und dabei Kanten schärfer erhält \cite{opencv_blur}. Dies ist für die nachfolgende Kantendetektion von besonderer Bedeutung, da verwischte Kanten die Erkennungsgenauigkeit der Hough-Transformation beeinträchtigen. Die Kernelgröße von $k = 11$ wurde empirisch ermittelt, da kleinere Werte nicht ausreichend glätten und größere Werte zu stark verwischen. Bei kleineren $k$ wurden durch übermäßiges Rauschen zahlreiche falsche Kreishypothesen generiert, während größere $k$ die Kanten der Dartscheibe zu stark verwischten, was ebenfalls zu unzuverlässigen Erkennungsergebnissen führte.
+
+Ergänzend zur Graustufekonvertierung wurde die Methode nach Otsu \cite{otsu-method} als alternatives Binarisierungsverfahren untersucht. Die Otsu-Methode bestimmt den optimalen Schwellwert vollautomatisch, indem sie die Varianz zwischen den resultierenden Klassen -- Vordergrund und Hintergrund -- maximiert und dabei ausschließlich auf dem Grauwerthistogramm des Bildes operiert \cite{otsu-method}. Gegenüber der einfachen Graustufenkonvertierung bietet die direkte Schwellwertbildung im Grauwertbild jedoch keinen wesentlichen Vorteil, da beide Verfahren keinerlei Farbinformation nutzen und somit gleichermaßen anfällig gegenüber wechselnden Lichtverhältnissen und farblich heterogenen Hintergründen sind. Die einfache Graustufenkonvertierung erwies sich dabei als ausreichend und wurde aufgrund ihrer geringeren Komplexität bevorzugt.
+
+\subsection{Erkennung der Dartscheibe}
+
+Der Ansatz mit variierenden Suchradien wurde gewählt, um die Erkennung von Dartscheiben unterschiedlicher Größe zu ermöglichen. Da die Scheibengröße im Bild je nach Aufnahmeabstand variiert, ist es notwendig, die Hough-Transformation mit einem Bereich von Radien zu betreiben, um sowohl kleine als auch große Scheiben zuverlässig zu erkennen.
+
+Da die Funktion $cv2.HoughCircles$ standardmäßig eine Liste von erkannten Kreisen liefert \cite{noauthor_opencv_nodate} wird hier immer der kleinste genommen. Das liegt daran, dass viele Dartscheiben mit einem äußeren Schutzring versehen sind, dessen Radius den der eigentlichen Scheibe übersteigt.
+
+Dieser Ansatz setzt voraus, dass die Kamera annähernd frontal auf die Dartscheibe gerichtet ist. Da die Quellpunkte aus der achsenparallelen Begrenzungsbox des erkannten Kreises abgeleitet werden, enthält die berechnete Homographie keine Information über die tatsächliche räumliche Orientierung der Scheibe. Bei stärkerer perspektivischer Verzerrung führt dies zu einer unvollständigen Entzerrung, was die Zuverlässigkeit der nachgelagerten Feldsegmentierung beeinträchtigt. Diese Einschränkung motiviert den in Kapitel~\ref{sec:ml-ansatz} beschriebenen Machine-Learning-Ansatz, der eine robustere Grundlage für die perspektivische Korrektur bietet.
+
 \section{Machine Learning Ansatz}
+
+\subsection{Erkennung der Dartscheibe}
+
+% Auch auf Datensatz und Annotation eingehen
+
+\subsection{Nachverarbeitung der Maske}
+
+\section{Gemeinsame Verarbeitungsschritte}
+
+\subsection{Perspektivische Korrektur und Normalisierung}
+
+Ziel dieser Normalisierung ist es, die anschließende geometrische Feldsegmentierung unabhängig von Aufnahmeabstand und Bildauflösung zu gestalten. Die Auflösung im Zielraum ist dabei frei wählbar und wurde empirisch auf $1024 \times 1024$ Pixel festgelegt. Ein zu gering gewählter Wert resultiert in einer unzureichenden Auflösung der Segmentlinien und beeinträchtigt damit die Genauigkeit der Punktberechnung. Ein zu hoch gewählter Wert hingegen erhöht den Rechenaufwand, ohne eine signifikante Verbesserung der Erkennungsgenauigkeit zu bewirken, da die zusätzlichen Pixel vorwiegend Rauschen enthalten.
+
+\subsection{Lokalisierung der Ringe}
+
+\subsection{Lokalisierung der Segmentlinien}
+
+\subsection{Berechnung des Scores}
+
+
+% Allgemein: Fehlende Beschreibung was bei Fehlern passiert. Ich kann näher auf die einzelnen Kriterien eingehen (Robustheit, Geschwindigkeit etc.)
